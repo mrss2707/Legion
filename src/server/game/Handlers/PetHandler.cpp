@@ -304,10 +304,12 @@ void WorldSession::HandlePetAbandon(WorldPackets::PetPackets::PetAbandon& packet
 
     if (auto pet = ObjectAccessor::GetCreatureOrPetOrVehicle(*_player, packet.Pet))
     {
+        ObjectGuid guid = _player->GetGUID();
+
         if (pet->isPet())
         {
             _player->RemovePet(pet->ToPet(), true);
-            _player->GetSession()->SendStablePet();
+            _player->GetSession()->SendStablePet(guid);
         }
         else if (pet->GetGUID() == _player->GetCharmGUID())
             _player->StopCastingCharm();
@@ -491,15 +493,15 @@ void WorldSession::HandleSetPetSlot(WorldPackets::PetPackets::SetPetSlot& packet
     if (pet && pet->GetCharmInfo() && pet->GetCharmInfo()->GetPetNumber() == packet.PetIndex)
         _player->RemovePet(pet);
 
-    PetSlot curentSlot = GetPlayer()->GetSlotForPetId(GetPlayer()->m_currentPetNumber);
-    if (pet && curentSlot == packet.NewSlot)
+    PetSlot currentSlot = GetPlayer()->GetSlotForPetId(GetPlayer()->m_currentPetNumber);
+    if (pet && currentSlot == packet.NewSlot)
         _player->RemovePet(pet);
 
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_BY_ID);
     stmt->setUInt64(0, _player->GetGUIDLow());
     stmt->setUInt32(1, packet.PetIndex);
 
-    _queryProcessor.AddQuery(CharacterDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&WorldSession::HandleStableChangeSlotCallback, this, std::placeholders::_1, packet.PetIndex)));
+    _queryProcessor.AddQuery(CharacterDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&WorldSession::HandleStableChangeSlotCallback, this, std::placeholders::_1, packet.NewSlot)));
 }
 
 void WorldSession::HandleStableChangeSlotCallback(PreparedQueryResult const& result, uint8 new_slot)
@@ -775,13 +777,18 @@ void WorldSession::SendPetNameInvalid(uint32 error, ObjectGuid const& guid, std:
     SendPacket(petNameInvalid.Write());
 }
 
-void WorldSession::SendStablePet(ObjectGuid const& /*guid*/ /*= ObjectGuid::Empty*/)
+void WorldSession::SendStablePet(ObjectGuid guid)
 {
     Player* player = GetPlayer();
     if (!player)
         return;
 
+    Creature* stableNPC = player->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_STABLEMASTER);
+    if (!stableNPC)
+        return;
+
     WorldPackets::PetPackets::StableList list;
+    list.StableMaster = stableNPC->GetGUID();
 
     std::set<uint32> stableNumber;
     PetInfoDataMap* petMap = player->GetPetInfoData();

@@ -1154,7 +1154,7 @@ class WorldSession
 
         void SendPetitionQueryOpcode(ObjectGuid petitionguid);
 
-        void SendStablePet(ObjectGuid const& guid = ObjectGuid::Empty);
+        void SendStablePet(ObjectGuid guid);
         void SendStableResult(StableResultCode res);
 
         // Account Data
