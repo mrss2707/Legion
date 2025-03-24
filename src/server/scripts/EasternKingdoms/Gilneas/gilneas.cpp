@@ -17,6 +17,7 @@
 
 #include "Unit.h"
 #include "gilneas.h"
+#include "GameObjectAI.h"
 #include "ScriptedEscortAI.h"
 #include "Vehicle.h"
 #include "CharmInfo.h"
@@ -339,7 +340,10 @@ public:
 
     struct npc_rampaging_worgenAI : public ScriptedAI
     {
-        npc_rampaging_worgenAI(Creature *c) : ScriptedAI(c) {}
+        npc_rampaging_worgenAI(Creature *c) : ScriptedAI(c) 
+        {
+            Initialize();
+        }
 
         uint32 tEnrage;
         uint32 dmgCount;
@@ -347,13 +351,18 @@ public:
         uint32 tSound;
         bool playSound;
 
-        void Reset() override
+        void Initialize()
         {
             tEnrage = 0;
             dmgCount = 0;
             tAnimate = DELAY_ANIMATE;
             tSound = DELAY_SOUND;
             playSound = false;
+        }
+
+        void Reset() override
+        {
+            Initialize();
         }
 
         void DamageDealt(Unit* target, uint32& damage, DamageEffectType /*damageType*/) override
@@ -470,47 +479,59 @@ public:
 
     struct npc_rampaging_worgen2AI : public ScriptedAI
     {
-        npc_rampaging_worgen2AI(Creature* creature) : ScriptedAI(creature) {}
+        npc_rampaging_worgen2AI(Creature* creature) : ScriptedAI(creature) 
+        {
+            Initialize();
+        }
+        
+        uint32 EnrageTimer;
+        bool bHasAura;
+        Player* aPlayer;
 
-        uint16 tRun, tEnrage;
-        bool onceRun, willCastEnrage;
-        float x, y, z;
+        void Initialize()
+        {
+            EnrageTimer = 0;
+            bHasAura = false;
+            aPlayer = nullptr;
+        }
+        void Reset() override
+        {
+            Initialize();
+        }
 
         void JustRespawned() override
         {
-            tEnrage = 0;
-            tRun = 500;
-            onceRun = true;
-            x = me->m_positionX + cos(me->GetOrientation())*8;
-            y = me->m_positionY + sin(me->GetOrientation())*8;
-            z = me->m_positionZ;
-            willCastEnrage = urand(0, 1);
+            Reset();
+            me->getThreatManager().resetAllAggro();
+            aPlayer = me->FindNearestPlayer(10.0f, true);
+            if (aPlayer)
+            {
+                me->GetMotionMaster()->MoveChase(aPlayer);
+                me->getThreatManager().addThreat(aPlayer, 10.0f);
+                me->AI()->AttackStart(aPlayer);
+            }
         }
 
         void UpdateAI(uint32 diff) override
         {
-            if (tRun <= diff && onceRun)
+
+            if ((me->GetHealthPct() <= 30) && (!bHasAura))
             {
-                me->GetMotionMaster()->MoveCharge(x, y, z, 8);
-                onceRun = false;
+                me->MonsterTextEmote(-106, ObjectGuid::Empty);
+                DoCast(me, SPELL_ENRAGE, false);
+                me->AI()->Talk(SAY_NPC_RAMPAGING_WORGEN_2);
+                EnrageTimer = ENRAGE_TIMER;
+                bHasAura = true;
             }
-            else
-                tRun -= diff;
 
             if (!UpdateVictim())
                 return;
 
-            if (tEnrage <= diff)
+            if (EnrageTimer <= diff)
             {
-                if (me->GetHealthPct() <= 30 && willCastEnrage)
-                {
-                    me->MonsterTextEmote(-106, ObjectGuid::Empty);
-                    DoCast(me, SPELL_ENRAGE, false);
-                    tEnrage = CD_ENRAGE;
-                }
+                bHasAura = false;
             }
-            else
-                tEnrage -= diff;
+            else EnrageTimer -= diff;
 
             DoMeleeAttackIfReady();
         }
@@ -524,256 +545,183 @@ public:
 class go_merchant_square_door : public GameObjectScript
 {
 public:
-    go_merchant_square_door() : GameObjectScript("go_merchant_square_door"), aPlayer(NULL) {}
+    go_merchant_square_door() : GameObjectScript("go_merchant_square_door") {}
 
-    float x, y, z, wx, wy, angle, tQuestCredit;
-    bool opened;
-    uint8 spawnKind;
-    Player* aPlayer;
-    GameObject* go;
-    uint32 DoorTimer;
-
-    bool OnGossipHello(Player* player, GameObject* go) override
+    struct go_merchant_square_doorAI : public GameObjectAI
     {
-        if (player->GetQuestStatus(QUEST_EVAC_MERC_SQUA) == QUEST_STATUS_INCOMPLETE && go->GetGoState() == GO_STATE_READY)
+        go_merchant_square_doorAI(GameObject* go) : GameObjectAI(go) 
         {
-            aPlayer          = player;
-            opened           = 1;
-            tQuestCredit     = 2500;
-            go->SetGoState(GO_STATE_ACTIVE);
-            DoorTimer = DOOR_TIMER;
-            spawnKind = urand(1, 3); //1, 2=citizen, 3=citizen&worgen (66%, 33%)
-            angle = go->GetOrientation();
-            x = go->GetPositionX()-cos(angle)*2;
-            y = go->GetPositionY()-sin(angle)*2;
-            z = go->GetPositionZ();
-            wx = x-cos(angle)*2;
-            wy = y-sin(angle)*2;
-
-            if (spawnKind < 3)
-            {
-                if (Creature* spawnedCreature = go->SummonCreature(NPC_FRIGHTENED_CITIZEN_1, x, y, z, angle, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
-                {
-                    spawnedCreature->SetPhaseMask(6, 1);
-                    spawnedCreature->Respawn(1);
-                }
-            }
-            else
-            {
-                if (Creature* spawnedCreature = go->SummonCreature(NPC_FRIGHTENED_CITIZEN_2, x, y, z, angle, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
-                {
-                    spawnedCreature->SetPhaseMask(6, 1);
-                    spawnedCreature->Respawn(1);
-                }
-            }
-            return true;
+            Initialize();
         }
-        return false;
-    }
 
-    void OnUpdate(GameObject* go, uint32 diff) override
-    {
-        if (opened == 1)
+        float x;
+        float y;
+        float z;
+        float facing;
+        float translateDir;
+        uint8 spawnKind;
+        uint32 DoorTimer;
+
+        void Initialize()
         {
-            if (tQuestCredit <= ((float)diff/8))
+            x = 0.0f;
+            y = 0.0f;
+            z = 0.0f;
+            facing = 0;
+            translateDir = 0;
+            spawnKind = 0;
+        }
+
+        void Reset() override
+        {
+            Initialize();
+            go->SetGoState(GO_STATE_READY);
+        }
+
+        bool GossipUse(Player* player) override
+        {
+            if (player->GetQuestStatus(QUEST_EVAC_MERC_SQUA) == QUEST_STATUS_INCOMPLETE && go->GetGoState() == GO_STATE_READY)
             {
-                opened = 0;
-                
-                if(aPlayer)
-                    aPlayer->KilledMonsterCredit(35830, ObjectGuid::Empty);
-                
-                if (spawnKind == 3)
+                go->SetGoState(GO_STATE_ACTIVE);
+
+                _scheduler.Schedule(Seconds(DOOR_TIMER), [this](TaskContext /*context*/)
+                    {
+                        if (go->GetGoState() == GO_STATE_ACTIVE)
+                            go->SetGoState(GO_STATE_READY);
+                    });
+
+                _scheduler.Schedule(Milliseconds(2500), [this, player](TaskContext /*context*/)
+                    {
+                        if (player)
+                            player->KilledMonsterCredit(35830, ObjectGuid::Empty);
+                    });
+
+                // Originally this was 33/66. Wowhead mentions about 50/50. I tested on retail to be about 33/66. 
+                uint8 spawnKind = urand(1, 2); //1=citizen, 2=citizen&worgen (50%, 50%) 
+                facing = go->GetOrientation() - M_PI / 2;
+                translateDir = go->GetOrientation() - M_PI / 4;
+                x = go->GetPositionX() - cos(translateDir) * 3;
+                y = go->GetPositionY() - sin(translateDir) * 3;
+                z = go->GetPositionZ();
+
+                if (spawnKind == 1)
                 {
-                    if (Creature* spawnedCreature = go->SummonCreature(NPC_RAMPAGING_WORGEN_2, wx, wy, z, angle, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
+                    if (Creature* spawnedCreature = go->SummonCreature(NPC_FRIGHTENED_CITIZEN_1, x, y, z, facing, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
                     {
                         spawnedCreature->SetPhaseMask(6, 1);
                         spawnedCreature->Respawn(1);
-                        spawnedCreature->getThreatManager().resetAllAggro();
-                        if(aPlayer)
-                            aPlayer->AddThreat(spawnedCreature, 1.0f);
-                        spawnedCreature->AddThreat(aPlayer, 1.0f);
                     }
                 }
-            }
-            else tQuestCredit -= ((float)diff/8);
-        }
-        if (DoorTimer <= diff)
-        {
-            if (go->GetGoState() == GO_STATE_ACTIVE)
-                go->SetGoState(GO_STATE_READY);
+                else
+                {
+                    if (Creature* spawnedCreature = go->SummonCreature(NPC_FRIGHTENED_CITIZEN_2, x, y, z, facing, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
+                    {
+                        spawnedCreature->SetPhaseMask(6, 1);
+                        spawnedCreature->Respawn(1);
 
-            DoorTimer = DOOR_TIMER;
+                        _scheduler.Schedule(Seconds(2), [this](TaskContext /*context*/)
+                            {
+                                if (Creature* spawnedCreature2 = go->SummonCreature(NPC_RAMPAGING_WORGEN_2, x, y, z, facing, TEMPSUMMON_TIMED_DESPAWN, SUMMON1_TTL))
+                                {
+                                    spawnedCreature2->SetPhaseMask(6, 1);
+                                    spawnedCreature2->Respawn(1);
+                                }
+                            });
+                    }
+                }
+                return true;
+            }
+            return false;
         }
-        else
-            DoorTimer -= diff;
+
+        void UpdateAI(uint32 diff) override
+        {
+            _scheduler.Update(diff);
+        }
+
+    private:
+        TaskScheduler _scheduler;
+    };
+
+    GameObjectAI* GetAI(GameObject* go) const override
+    {
+        return new go_merchant_square_doorAI(go);
     }
 };
 
+
 /*######
-## npc_frightened_citizen
+## npc_frightened_citizen (34981, 35836)
 ######*/
-
-struct Point
-{
-    float x, y;
-};
-
-struct WayPointID
-{
-    int pathID, pointID;
-};
-
-struct Paths
-{
-    uint8 pointsCount[8]; //pathID, pointsCount
-    Point paths[8][10];   //pathID, pointID, Point
-};
 
 class npc_frightened_citizen : public CreatureScript
 {
 public:
     npc_frightened_citizen() : CreatureScript("npc_frightened_citizen") {}
 
-    CreatureAI* GetAI(Creature* creature) const
-    {
-        return new npc_frightened_citizenAI (creature);
-    }
-
     struct npc_frightened_citizenAI : public ScriptedAI
     {
         npc_frightened_citizenAI(Creature* creature) : ScriptedAI(creature) {}
 
-        uint16 tRun, tRun2, tSay;
-        bool onceRun, onceRun2, onceGet, onceSay;
-        float x, y, z;
-        WayPointID nearestPointID;
-        Paths paths;
-
-        Paths LoadPaths()
-        {
-            paths.pointsCount[0] = 7;
-            paths.paths[0][0].x = -1544.83f; paths.paths[0][0].y = 1429.68f;
-            paths.paths[0][1].x = -1554.44f; paths.paths[0][1].y = 1409.34f;
-            paths.paths[0][2].x = -1554.34f; paths.paths[0][2].y = 1388.02f;
-            paths.paths[0][3].x = -1557.97f; paths.paths[0][3].y = 1361.57f;
-            paths.paths[0][4].x = -1560.59f; paths.paths[0][4].y = 1333.97f;
-            paths.paths[0][5].x = -1568.32f; paths.paths[0][5].y = 1327.29f;
-            paths.paths[0][6].x = -1577.35f; paths.paths[0][6].y = 1317.59f;
-
-            paths.pointsCount[1] = 10;
-            paths.paths[1][0].x = -1463.96f; paths.paths[1][0].y = 1429.41f;
-            paths.paths[1][1].x = -1429.19f; paths.paths[1][1].y = 1422.41f;
-            paths.paths[1][2].x = -1419.33f; paths.paths[1][2].y = 1419.23f;
-            paths.paths[1][3].x = -1406.90f; paths.paths[1][3].y = 1416.03f;
-            paths.paths[1][4].x = -1403.28f; paths.paths[1][4].y = 1401.21f;
-            paths.paths[1][5].x = -1407.48f; paths.paths[1][5].y = 1375.36f;
-            paths.paths[1][6].x = -1502.08f; paths.paths[1][6].y = 1342.68f;
-            paths.paths[1][7].x = -1537.70f; paths.paths[1][7].y = 1330.3f;
-            paths.paths[1][8].x = -1562.15f; paths.paths[1][8].y = 1319.15f;
-            paths.paths[1][9].x = -1577.96f; paths.paths[1][9].y = 1316.79f;
-
-            return paths;
-        }
-
-        void MultiDistanceMeter(Point *p, uint8 pointsCount, float *dist)
-        {
-            for (uint8 i = 0; i <= (pointsCount-1); i++)
-                dist[i] = me->GetDistance2d(p[i].x, p[i].y);
-        }
-
-        WayPointID GetNearestPoint(Paths paths)
-        {
-            WayPointID nearestPointID;
-            float dist[PATHS_COUNT][10], lowestDists[PATHS_COUNT];
-            uint8 nearestPointsID[PATHS_COUNT], lowestDist;
-            for (uint8 i = 0; i <= PATHS_COUNT-1; i++)
-            {
-                MultiDistanceMeter(paths.paths[i], paths.pointsCount[i], dist[i]);
-                for (uint8 j = 0; j <= paths.pointsCount[i]-1; j++)
-                {
-                    if (j == 0)
-                    {
-                        lowestDists[i] = dist[i][j];
-                        nearestPointsID[i] = j;
-                    }
-                    else if (lowestDists[i] > dist[i][j])
-                    {
-                        lowestDists[i] = dist[i][j];
-                        nearestPointsID[i] = j;
-                    }
-                }
-            }
-            for (uint8 i = 0; i < PATHS_COUNT; i++)
-            {
-                if (i == 0)
-                {
-                    lowestDist = lowestDists[i];
-                    nearestPointID.pointID = nearestPointsID[i];
-                    nearestPointID.pathID = i;
-                }
-                else if (lowestDist > lowestDists[i])
-                {
-                    lowestDist = lowestDists[i];
-                    nearestPointID.pointID = nearestPointsID[i];
-                    nearestPointID.pathID = i;
-                }
-            }
-            return nearestPointID;
-        }
+    private:
+        int offset = 0;
 
         void JustRespawned() override
         {
-            paths          = LoadPaths();
-            tRun           = 500;
-            tRun2          = 2500;
-            tSay           = 1000;
-            onceRun = onceRun2 = onceSay = onceGet = true;
-            x = me->m_positionX + cos(me->GetOrientation())*5;
-            y = me->m_positionY + sin(me->GetOrientation())*5;
-            z = me->m_positionZ;
+            offset = GetWaypointPathOffset(me->m_positionX, me->m_positionY);
+            me->SetReactState(REACT_PASSIVE);
+            _scheduler.Schedule(Milliseconds(200), [this](TaskContext /*context*/)
+                {
+                    me->GetMotionMaster()->MovePath(PATH_FRIGHTENED_CITIZENS + offset, false);
+                });
+        }
+
+        int GetWaypointPathOffset(float x, float y)
+        {
+            int offset = 0;
+            float currentDistance = 100;
+            float distanceToWaypoint = 0;
+            for (int i = 0; i < (sizeof(DoorLocations) / sizeof(DoorLocations[0])); i++)
+            {
+                distanceToWaypoint = me->GetDistance2d(DoorLocations[i].x, DoorLocations[i].y);
+                if (distanceToWaypoint < currentDistance)
+                {
+                    currentDistance = distanceToWaypoint;
+                    offset = i;
+                }
+            }
+
+            return offset;
+        }
+
+        void MovementInform(uint32 type, uint32 pointId) override
+        {
+            if (pointId == POINT_FRIGHTENED_CITIZEN_SAY)
+            {
+                me->AI()->Talk(SAY_NPC_FRIGHTENED_CITIZEN);
+            }
+        }
+
+        void LastWPReached() override
+        {
+            me->DespawnOrUnsummon();
         }
 
         void UpdateAI(uint32 diff) override
         {
-            if (tRun <= diff && onceRun)
-            {
-                me->GetMotionMaster()->MoveCharge(x, y, z, 8);
-                onceRun = false;
-            }
-            else
-                tRun -= diff;
-
-            if (tSay <= diff && onceSay)
-            {
-                Talk(0);
-                onceSay = false;
-            }
-            else
-                tSay -= diff;
-
-            if (tRun2 <= diff)
-            {
-                if (onceGet)
-                {
-                    nearestPointID = GetNearestPoint(paths);
-                    onceGet = false;
-                }
-                else
-                {
-                    if (me->GetDistance2d(paths.paths[nearestPointID.pathID][nearestPointID.pointID].x, paths.paths[nearestPointID.pathID][nearestPointID.pointID].y) > 1)
-                        me->GetMotionMaster()->MoveCharge(paths.paths[nearestPointID.pathID][nearestPointID.pointID].x, paths.paths[nearestPointID.pathID][nearestPointID.pointID].y, z, 8);
-                    else
-                        nearestPointID.pointID ++;
-
-                    if (nearestPointID.pointID >= paths.pointsCount[nearestPointID.pathID])
-                        me->DespawnOrUnsummon();
-                }
-            }
-            else
-                tRun2 -= diff;
+            _scheduler.Update(diff);
         }
+
+    private:
+        TaskScheduler _scheduler;
     };
+
+    CreatureAI* GetAI(Creature* creature) const
+    {
+        return new npc_frightened_citizenAI(creature);
+    }
 };
+
 
 /*######
 ## npc_sergeant_cleese
