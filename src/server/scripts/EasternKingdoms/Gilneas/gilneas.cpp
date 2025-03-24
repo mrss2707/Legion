@@ -596,7 +596,7 @@ public:
                             player->KilledMonsterCredit(35830, ObjectGuid::Empty);
                     });
 
-                // Originally this was 33/66. Wowhead mentions about 50/50. I tested on retail to be about 33/66. 
+                // Originally this was 66/33. Wowhead mentions about 50/50. I tested on retail to be about 33/66. 
                 uint8 spawnKind = urand(1, 2); //1=citizen, 2=citizen&worgen (50%, 50%) 
                 facing = go->GetOrientation() - M_PI / 2;
                 translateDir = go->GetOrientation() - M_PI / 4;
