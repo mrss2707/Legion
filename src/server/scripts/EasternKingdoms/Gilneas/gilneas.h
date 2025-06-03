@@ -18,6 +18,20 @@
 #ifndef DEF_GILNEAS_H
 #define DEF_GILNEAS_H
 
+enum QuestIds
+{
+    QUEST_LOCKDOWN = 14078,
+    QUEST_SOMETHINGS_AMISS = 14091,
+    QUEST_EVAC_MERC_SQUA = 14098,
+    QUEST_ALL_HELL_BREAKS_LOOSE = 14093,
+    QUEST_ROYAL_ORDERS = 14099,
+    QUEST_BY_THE_SKIN_ON_HIS_TEETH = 14154,
+    QUEST_SAVE_KRENNAN_ARANAS = 14293,
+    QUEST_SACRIFICES = 14212,
+    QUEST_THE_REBEL_LORDS_ARSENAL = 14159,
+    QUEST_FROM_THE_SHADOWS = 14204
+};
+
 enum CreatureIds
 {
     NPC_PRINCE_LIAM_GREYMANE                          = 34913,
@@ -53,21 +67,7 @@ enum CreatureIds
     NPC_COMMANDEERED_CANNON                           = 35914,
     NPC_KRENNAN_ARANAS_TREE                           = 35753,
     NPC_GREYMANE_HORSE_P4                             = 35905,
-    NPC_MOUNTAICE_HOURCE_CREDIT                       = 36560,
-};
-
-enum QuestIds
-{
-    QUEST_LOCKDOWN                                     = 14078,
-    QUEST_EVAC_MERC_SQUA                               = 14098,
-    QUEST_SOMETHINGS_AMISS                             = 14091,
-    QUEST_ALL_HELL_BREAKS_LOOSE                        = 14093,
-    QUEST_ROYAL_ORDERS                                 = 14099,
-    QUEST_BY_THE_SKIN_ON_HIS_TEETH                     = 14154,
-    QUEST_SAVE_KRENNAN_ARANAS                          = 14293,
-    QUEST_SACRIFICES                                   = 14212,
-    QUEST_THE_REBEL_LORDS_ARSENAL                      = 14159,
-    QUEST_FROM_THE_SHADOWS                             = 14204
+    NPC_MOUNTAICE_HOURCE_CREDIT                       = 36560
 };
 
 enum SpellIds
@@ -119,7 +119,10 @@ enum NpcTextIds
     SAY_KING_GENN_GREYMANE_P4                          = 1,
     SAY_GILNEAS_CITY_GUARD_P8                          = 1,
     SAY_LORD_GODFREY_P4                                = 0,
-    SAY_NPC_KRENNAN_ARANAS_TREE                        = 0
+    SAY_NPC_KRENNAN_ARANAS_TREE                        = 0,
+
+    SAY_NPC_FRIGHTENED_CITIZEN                         = 0,
+    SAY_NPC_RAMPAGING_WORGEN_2                         = 0
 };
 
 enum SoundIds
@@ -130,6 +133,39 @@ enum SoundIds
     DELAY_SOUND                                       = 500,
     DELAY_ANIMATE                                     = 2000
 };
+
+struct Point
+{
+    float x, y;
+};
+
+// Merchant Square Door Locations
+// Waypoint_Data_Script starts at 3498100 + offset of this index for each door.
+Point const DoorLocations[] =
+{
+    { -1394.59f, 1403.33f},          // Door 46935 0
+    { -1421.08f, 1412.98f},          // Door 46931 1
+    { -1426.66f, 1436.56f},          // Door 46908 2
+    { -1463.9f, 1444.26f},           // Door 46934 3
+    { -1486.29f, 1334.58f},          // Door 46922 4
+    { -1493.83f, 1371.16f},          // Door 46924 5
+    { -1513.22f, 1371.14f},          // Door 46923 6
+    { -1529.5f, 1322.8f},            // Door 46926 7
+    { -1537.47f, 1443.97f},          // Door 47149 8
+    { -1549.55f, 1309.61f},          // Door 46929 9
+    { -1562.48f, 1409.71f},          // Door 46925 10
+    { -1569.8f, 1384.91f},           // Door 46927 11
+    { -1576.57f, 1335.94f},          // Door 46930 12
+    { -1583.43f, 1359.09f}           // Door 46928 13
+};
+
+enum FrightenedCitizen
+{
+    PATH_FRIGHTENED_CITIZENS = 3498100,
+    POINT_FRIGHTENED_CITIZEN_SAY = 0
+};
+
+
 
 struct Waypoint
 {
@@ -170,9 +206,10 @@ Waypoint N_WAYPOINT_LOC[1]=
 #define DELAY_SAY_GILNEAS_CITY_GUARD_GATE             urand(30000, 120000) // 30sec - 1.5min
 #define PATHS_COUNT_PANICKED_CITIZEN                  8
 #define CD_ENRAGE                                     30000
+#define ENRAGE_TIMER                                  120000
 #define SUMMON1_TTL                                   300000
 #define PATHS_COUNT                                   2
-#define DOOR_TIMER                                    30*IN_MILLISECONDS
+#define DOOR_TIMER                                    30
 #define KRENNAN_END_X                                 -1772.4172f
 #define KRENNAN_END_Y                                 1430.6125f
 #define KRENNAN_END_Z                                 19.79f

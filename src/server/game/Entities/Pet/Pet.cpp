@@ -397,7 +397,7 @@ void Pet::SavePetToDB(bool isDelete)
     if (!m_charmInfo->GetPetNumber())
         return;
 
-    PetSlot curentSlot = GetSlot();
+    PetSlot currentSlot = GetSlot();
 
     //not delete, just remove from curent slot
     if((m_owner->getClass() == CLASS_WARLOCK || m_owner->getClass() == CLASS_DEATH_KNIGHT) && isDelete)
@@ -422,7 +422,7 @@ void Pet::SavePetToDB(bool isDelete)
     _SaveSpellCooldowns(trans);
     CharacterDatabase.CommitTransaction(trans);
 
-    // TC_LOG_DEBUG(LOG_FILTER_SPELLS_AURAS, "SavePetToDB petentry %i, petnumber %i, slotID %i ownerid %i GetNativeDisplayId %u", GetEntry(), m_charmInfo->GetPetNumber(), curentSlot, GetOwnerGUID().GetGUIDLow(), GetNativeDisplayId());
+    // TC_LOG_DEBUG(LOG_FILTER_SPELLS_AURAS, "SavePetToDB petentry %i, petnumber %i, slotID %i ownerid %i GetNativeDisplayId %u", GetEntry(), m_charmInfo->GetPetNumber(), currentSlot, GetOwnerGUID().GetGUIDLow(), GetNativeDisplayId());
 
     // current/stable/not_in_slot
     if (!isDelete)
@@ -464,8 +464,8 @@ void Pet::SavePetToDB(bool isDelete)
     else
     {
         owner->DeletePetInfo(m_charmInfo->GetPetNumber());
-        if((curentSlot >= PET_SLOT_HUNTER_FIRST && curentSlot <= owner->GetMaxCurentPetSlot()))
-            owner->cleanPetSlotForMove(curentSlot, m_charmInfo->GetPetNumber());     //could be already remove by early call this function
+        if((currentSlot >= PET_SLOT_HUNTER_FIRST && currentSlot <= owner->GetMaxCurentPetSlot()))
+            owner->cleanPetSlotForMove(currentSlot, m_charmInfo->GetPetNumber());     //could be already remove by early call this function
         RemoveAllAuras();
         DeleteFromDB(m_charmInfo->GetPetNumber());
     }

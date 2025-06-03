@@ -18357,6 +18357,7 @@ void Player::SendPreparedGossip(WorldObject* source)
 void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 menuId)
 {
     GossipMenu& gossipMenu = PlayerTalkClass->GetGossipMenu();
+    ObjectGuid guid = source->GetGUID();
 
     // if not same, then something funky is going on
     if (menuId != gossipMenu.GetMenuId())
@@ -18366,7 +18367,6 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
     if (!item)
         return;
     uint32 gossipHandlerType = item->OptionType;
-    ObjectGuid guid = source->GetGUID();
 
     if (source->IsGameObject())
     {
@@ -22622,7 +22622,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SQLQueryHolder *holder)
             {
                 ++prof_count;
 
-                if(prof_count > 2)
+                if(prof_count > sWorld->getIntConfig(CONFIG_MAX_PRIMARY_TRADE_SKILL))
                     SetSkill(skill_id);
             }    
         }
@@ -29896,6 +29896,8 @@ void Player::SendInitialPacketsBeforeAddToMap(bool login)
 //! After send self obj. update 
 void Player::SendInitialPacketsAfterAddToMap(bool login)
 {
+    ObjectGuid guid = ToPlayer()->GetGUID();
+
     // update zone
     uint32 newzone, newarea;
     GetZoneAndAreaId(newzone, newarea);
@@ -30000,7 +30002,7 @@ void Player::SendInitialPacketsAfterAddToMap(bool login)
     if (getClass() == CLASS_DEATH_KNIGHT)
         SetPower(POWER_RUNIC_POWER, 0);
 
-    GetSession()->SendStablePet();
+    GetSession()->SendStablePet(guid);
 
     InstanceMap* inst = GetMap()->ToInstanceMap();
     // send step data when entering scenarios
@@ -38751,6 +38753,8 @@ void Player::ApplyDotMod(uint32 spellId, SpellModOp op, float& basemod, float& b
 
 void Player::CreateDefaultPet()
 {
+    ObjectGuid guid = ToPlayer()->GetGUID();
+
     if (getClass() == CLASS_WARLOCK)
         CastSpell(this, 688, true);
 
@@ -38831,7 +38835,7 @@ void Player::CreateDefaultPet()
             pet->SavePetToDB();
             ToPlayer()->PetSpellInitialize();
 
-            ToPlayer()->GetSession()->SendStablePet();
+            ToPlayer()->GetSession()->SendStablePet(guid);
         }
     }
 }

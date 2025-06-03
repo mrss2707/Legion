@@ -4520,6 +4520,8 @@ void Spell::EffectEnchantItemPrismatic(SpellEffIndex effIndex)
 
 void Spell::EffectEnchantItemTmp(SpellEffIndex effIndex)
 {
+    ObjectGuid guid = m_caster->GetGUID();
+
     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT_TARGET)
         return;
 
@@ -4585,6 +4587,8 @@ void Spell::EffectEnchantItemTmp(SpellEffIndex effIndex)
 
 void Spell::EffectTameCreature(SpellEffIndex /*effIndex*/)
 {
+    ObjectGuid guid = m_caster->GetGUID();
+
     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT_TARGET)
         return;
 
@@ -4634,7 +4638,7 @@ void Spell::EffectTameCreature(SpellEffIndex /*effIndex*/)
 
     pet->SavePetToDB();
     player->PetSpellInitialize();
-    player->GetSession()->SendStablePet();
+    player->GetSession()->SendStablePet(guid);
 }
 
 void Spell::EffectSummonPet(SpellEffIndex effIndex)
@@ -7625,6 +7629,8 @@ void Spell::EffectQuestStart(SpellEffIndex effIndex)
 
 void Spell::EffectCreateTamedPet(SpellEffIndex effIndex)
 {
+    ObjectGuid guid = m_caster->GetGUID();
+
     if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT_TARGET)
         return;
 
@@ -7644,7 +7650,7 @@ void Spell::EffectCreateTamedPet(SpellEffIndex effIndex)
 
     pet->SavePetToDB();
     player->PetSpellInitialize();
-    player->GetSession()->SendStablePet();
+    player->GetSession()->SendStablePet(guid);
 }
 
 void Spell::EffectDiscoverTaxi(SpellEffIndex effIndex)

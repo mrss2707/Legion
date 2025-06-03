@@ -20,7 +20,7 @@
 #include "GridDefines.h"
 #include <G3D/LineSegment.h>
 
-Position::Position(float x, float y, float z, float o, float h) : m_positionX(x), m_positionY(y), m_positionZ(z), m_positionH(h), m_orientation(NormalizeOrientation(o))
+Position::Position(float x, float y, float z, float o, float h) : m_positionX(x), m_positionY(y), m_positionZ(z), m_orientation(NormalizeOrientation(o)), m_positionH(h)
 {
 }
 
